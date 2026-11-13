@@ -531,6 +531,10 @@ int ringnav_usb_config(void), ringnav_usb_detect(void), ringnav_usb_status(void)
 int stock_usb_config_trampoline(void), stock_usb_detect_trampoline(void);
 int stock_usb_status_trampoline(void);
 
+/* usb_charge_ui.c */
+void usb_charge_row(void *view);
+int usb_charge_image(void *image, const char *stock_choice);
+
 /* library_lists.c */
 int era_menu(void *ctx, void *event);
 int era_sql(const char *sql, int (*row)(void *, int, char **, char **), void *ctx);

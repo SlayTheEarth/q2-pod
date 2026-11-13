@@ -3380,6 +3380,7 @@ int ringnav_powermanager(void *win, void *ctx) {
         widget_set_text_utf8(list_row_into(view, "system_powermanager", battery_history, 0),
                              "Battery History");
     boot_row(view);
+    usb_charge_row(view);
     return result;
 }
 /* The Bluetooth page's list (stock's local builder, btmenu_rows), rebuilt whole on every search and
@@ -3925,16 +3926,15 @@ static void bar_dark_sync(void *bar) {
     if (!st.bar_timer) st.bar_timer = timer_add(bar_repaint, (void *)0, 0);
 }
 /* The battery view_battery shows: the level from label_battery's "88%" (stock zeroes
- * progress_battery while charging), then under Classic full on power (get_battery_capacity's
- * status 2 and stock's cable flag, memory both, as stock shows the plain icon then), charging
+ * progress_battery while charging), charging from usb_charge_image's filtered stock icon
  * (bar_charge) and low (bar_lowcharge), as stock picks the icon. Reads stock's widgets, no I/O. */
 static unsigned battery_now(int classic_light) {
+    (void)classic_light; /* Full is not charging; every painter uses the same image state. */
     const char *icon = widget_get_prop_str(st.bar_icon, "image", "");
     const unsigned *t = widget_get_text(st.bar_pct);
     int level = 0;
     while (t && *t >= '0' && *t <= '9') level = level * 10 + (int)(*t++ - '0');
     return (unsigned)(level > 100 ? 100 : level) << 3 |
-           (unsigned)(classic_light && I(g_power_chargestate, 0) == 2 && g_usbdet_value) << 2 |
            (unsigned)(icon && !tk_strcmp(icon, "bar_charge")) << 1 |
            (unsigned)(icon && !tk_strcmp(icon, "bar_lowcharge"));
 }

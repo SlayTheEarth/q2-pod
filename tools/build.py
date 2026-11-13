@@ -1041,6 +1041,10 @@ def dev_build():
     return number
 
 def j(addr): return 0x08000000 | addr >> 2  # MIPS j
+# Final native battery image writes: retain the delay-slot arguments at both sites.
+# bar_charge, bar_battery and bar_lowcharge all reach one of these two calls.
+USB_CHARGE_IMAGE_CALLS = (0x541c74, 0x541e50)
+
 def jal(addr): return 0x0c000000 | addr >> 2  # MIPS jal
 def check(condition, message):
     if not condition: raise ValueError(message)
@@ -1591,7 +1595,7 @@ FLAGS = ['--target=mipsel-linux-gnu','-march=mips32r2','-mabi=32','-mfp64',
          '-fno-stack-protector','-fno-unwind-tables','-fno-asynchronous-unwind-tables',
          '-Oz','-Wall','-Wextra','-Werror','-Wno-unused-parameter']
 # navigation.c and the files split out of it (patch/navigation.h), each its own object, linked in this order.
-NAVIGATION = ['navigation.c', 'theme_engine.c', 'playlists.c', 'classic_pages.c', 'home.c', 'np_bar.c', 'volume.c', 'smart_wifi.c', 'system.c', 'usb_charge.c', 'tags.c', 'scrobble_ui.c', 'library_lists.c', 'durations.c', 'ratings.c', 'scan_folders.c', 'folder_delete.c', 'battery.c']
+NAVIGATION = ['navigation.c', 'theme_engine.c', 'playlists.c', 'classic_pages.c', 'home.c', 'np_bar.c', 'volume.c', 'smart_wifi.c', 'system.c', 'usb_charge.c', 'usb_charge_ui.c', 'tags.c', 'scrobble_ui.c', 'library_lists.c', 'durations.c', 'ratings.c', 'scan_folders.c', 'folder_delete.c', 'battery.c']
 
 def compile_payload(out):  # pragma: no mutate block
     """Compile and link the payload."""
@@ -2018,6 +2022,12 @@ def build(zip_path, out, logo, dev=False, repo=REPO, aic_idle_wait=False, rotato
                    jal(ps['ringnav_ab_x']), "A-B markers on Classic's fitted bar")
     for address, old, new in LDAC_HQ:
         patch_word(patched, address, old, new, 'LDAC HQ sends 990 kbps')
+    check(struct.unpack_from('<I', raw_demo, fileoff(raw_demo, GP - 0x5834))[0] == syms['image_base_set_image'],
+          'battery image: expected image_base_set_image GOT slot')
+    for site, delay in zip(USB_CHARGE_IMAGE_CALLS, (0x02402025, 0x24a57014)):
+        check(struct.unpack_from('<I', raw_demo, fileoff(raw_demo, site+4))[0] == delay,
+              'battery image: unexpected delay-slot arguments')
+        patch_word(patched, site, 0x0320f809, jal(ps['usb_charge_image']), 'battery indicates actual enabled charging')
     patch_word(patched, WHEEL_TS_READ[0], WHEEL_TS_READ[1], jal(ps['ringnav_ts_read']), 'wheel ticks')
     check(struct.unpack_from('<I', raw_demo, fileoff(raw_demo, GP - 0x7f44))[0] == 0xa50000 and
           all(struct.unpack_from('<I', raw_demo, fileoff(raw_demo, a))[0] == w for a, w in NET_TYPE_READS),
